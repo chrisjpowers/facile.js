@@ -41,7 +41,31 @@
         expectedHtml = '<table class="order"><thead><tr><td>Orders</td></tr></thead><tbody><tr><td class="name">cool order</td></tr><tr><td class="name">lame order</td></tr></tbody></table>'
         expect(result).toBe(expectedHtml)
 
+    describe 'binds deferred data', ->
+      it 'to ids', ->
+        template = '<div id="dog" />'
+        data = {dog: -> 'woof'}
+        result = facile(template, data)
+        expect(result).toBe('<div id="dog">woof</div>')
+
+      it 'of binding objects', ->
+        template = '<div id="orders"><div class="order"><div class="name" /></div></div>'
+        data =
+          orders: -> [
+            { name: -> 'cool order' }
+            { name: -> 'lame order' }
+          ]
+        result = facile(template, data)
+        expectedHtml = '<div id="orders"><div class="order"><div class="name">cool order</div></div><div class="order"><div class="name">lame order</div></div></div>'
+        expect(result).toBe(expectedHtml)
+
     describe 'binds objects', ->
+      it 'to ids with deferred values', ->
+        template = '<div id="dog" />'
+        data = {dog: -> {content: (-> 'woof'), 'data-age': (-> 3)} }
+        result = facile(template, data)
+        expect(result).toBe('<div id="dog" data-age="3">woof</div>')
+
       it 'to ids', ->
         template = '<div id="dog" />'
         data = {dog: {content: 'woof', 'data-age': 3} }
@@ -140,6 +164,29 @@
           dogs: [
             {dog: {content: 'woof', 'data-age': 3}}
             {dog: {content: 'bark', 'data-peak': 27}}
+          ]
+        result = facile(template, data)
+        expect(result).toBe('<div id="dogs"><div class="dog" data-age="3">woof</div><div class="dog" data-peak="27">bark</div></div>')
+
+    describe 'binding arrays with deferred values', ->
+      xit 'binds to class and id'
+
+      it 'of binding objects', ->
+        template = '<div id="dogs"><div class="dog"><div class="speak" /></div></div>'
+        data =
+          dogs: -> [
+            { speak: -> 'woof' }
+            { speak: -> 'bark' }
+          ]
+        result = facile(template, data)
+        expect(result).toBe('<div id="dogs"><div class="dog"><div class="speak">woof</div></div><div class="dog"><div class="speak">bark</div></div></div>')
+
+      it 'of content objects', ->
+        template = '<div id="dogs"><div class="dog" /></div>'
+        data =
+          dogs: -> [
+            {dog: -> {content: (-> 'woof'), 'data-age': (-> 3)}}
+            {dog: -> {content: (-> 'bark'), 'data-peak': (-> 27)}}
           ]
         result = facile(template, data)
         expect(result).toBe('<div id="dogs"><div class="dog" data-age="3">woof</div><div class="dog" data-peak="27">bark</div></div>')

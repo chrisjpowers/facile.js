@@ -17,7 +17,7 @@ combineClasses = (existingClasses, newClasses) ->
 facile = (template, data) ->
   $template = $('<div />').append($(template))
   for key, value of data
-    bindOrRemove($template, key, value)
+    bindOrRemove($template, key, resolve(value))
   $template.html()
 
 # Compile method for using in Express
@@ -95,15 +95,25 @@ bindValue = ($template, key, value) ->
 
 bindNestedObject = ($template, key, value) ->
   for attr, attrValue of value
-    bindOrRemove($template, attr, attrValue)
+    bindOrRemove($template, attr, resolve attrValue)
 
 bindAttributeObject = ($template, key, value) ->
-  $template.html(value.content)
+  $template.html(resolve value.content)
   for attr, attrValue of value when attr != 'content'
+    val = resolve attrValue
     if attr == 'class'
-      $template.attr('class', combineClasses($template.attr('class'), attrValue))
+      $template.attr('class', combineClasses($template.attr('class'), val))
     else
-      $template.attr(attr, attrValue)
+      $template.attr(attr, val)
+
+resolve = (functionOrValue) ->
+  if isFunction functionOrValue
+    functionOrValue()
+  else
+    functionOrValue
+
+isFunction = (obj) ->
+  !!(obj && obj.constructor && obj.call && obj.apply);
 
 if this.window
   window.facile = facile
