@@ -64,7 +64,149 @@
           return expect(result).toBe(expectedHtml);
         });
       });
+      describe('binds deferred data', function() {
+        it('to ids', function() {
+          var data, result, template;
+          template = '<div id="dog" />';
+          data = {
+            dog: function() {
+              return 'woof';
+            }
+          };
+          result = facile(template, data);
+          return expect(result).toBe('<div id="dog">woof</div>');
+        });
+        return it('of binding objects', function() {
+          var data, expectedHtml, result, template;
+          template = '<div id="orders"><div class="order"><div class="name" /></div></div>';
+          data = {
+            orders: function() {
+              return [
+                {
+                  name: function() {
+                    return 'cool order';
+                  }
+                }, {
+                  name: function() {
+                    return 'lame order';
+                  }
+                }
+              ];
+            }
+          };
+          result = facile(template, data);
+          expectedHtml = '<div id="orders"><div class="order"><div class="name">cool order</div></div><div class="order"><div class="name">lame order</div></div></div>';
+          return expect(result).toBe(expectedHtml);
+        });
+      });
+      describe('binds deferred async data', function() {
+        it('to ids', function() {
+          var data, result, template;
+          template = '<div id="dog" />';
+          data = {
+            dog: function() {
+              return 'woof';
+            }
+          };
+          result = null;
+          facile(template, data, function(err, str) {
+            return result = str;
+          });
+          waitsFor(function() {
+            return result;
+          });
+          return runs(function() {
+            return expect(result).toBe('<div id="dog">woof</div>');
+          });
+        });
+        it('to ids with deferred functions with callbacks', function() {
+          var data, result, template;
+          template = '<div id="dog" />';
+          data = {
+            dog: function(cb) {
+              return cb(null, 'woof');
+            }
+          };
+          result = null;
+          facile(template, data, function(err, str) {
+            return result = str;
+          });
+          waitsFor(function() {
+            return result;
+          });
+          return runs(function() {
+            return expect(result).toBe('<div id="dog">woof</div>');
+          });
+        });
+        it('passes callback errors up to facile', function() {
+          var data, error, template;
+          template = '<div id="dog" />';
+          data = {
+            dog: function(cb) {
+              return cb("Bad things happened");
+            }
+          };
+          error = null;
+          facile(template, data, function(err, str) {
+            return error = err;
+          });
+          waitsFor(function() {
+            return error;
+          });
+          return runs(function() {
+            return expect(error).toBe("Bad things happened");
+          });
+        });
+        return it('of binding objects', function() {
+          var data, expectedHtml, result, template;
+          template = '<div id="orders"><div class="order"><div class="name" /></div></div>';
+          data = {
+            orders: function(cb) {
+              return cb(null, [
+                {
+                  name: function(cb) {
+                    return cb(null, 'cool order');
+                  }
+                }, {
+                  name: function(cb) {
+                    return cb(null, 'lame order');
+                  }
+                }
+              ]);
+            }
+          };
+          result = null;
+          facile(template, data, function(err, str) {
+            return result = str;
+          });
+          expectedHtml = '<div id="orders"><div class="order"><div class="name">cool order</div></div><div class="order"><div class="name">lame order</div></div></div>';
+          waitsFor(function() {
+            return result;
+          });
+          return runs(function() {
+            return expect(result).toBe(expectedHtml);
+          });
+        });
+      });
       describe('binds objects', function() {
+        it('to ids with deferred values', function() {
+          var data, result, template;
+          template = '<div id="dog" />';
+          data = {
+            dog: function() {
+              return {
+                content: (function() {
+                  return 'woof';
+                }),
+                'data-age': (function() {
+                  return 3;
+                })
+              };
+            }
+          };
+          result = facile(template, data);
+          return expect(result).toBe('<div id="dog" data-age="3">woof</div>');
+        });
         it('to ids', function() {
           var data, result, template;
           template = '<div id="dog" />';
@@ -225,6 +367,65 @@
                 }
               }
             ]
+          };
+          result = facile(template, data);
+          return expect(result).toBe('<div id="dogs"><div class="dog" data-age="3">woof</div><div class="dog" data-peak="27">bark</div></div>');
+        });
+      });
+      describe('binding arrays with deferred values', function() {
+        xit('binds to class and id');
+        it('of binding objects', function() {
+          var data, result, template;
+          template = '<div id="dogs"><div class="dog"><div class="speak" /></div></div>';
+          data = {
+            dogs: function() {
+              return [
+                {
+                  speak: function() {
+                    return 'woof';
+                  }
+                }, {
+                  speak: function() {
+                    return 'bark';
+                  }
+                }
+              ];
+            }
+          };
+          result = facile(template, data);
+          return expect(result).toBe('<div id="dogs"><div class="dog"><div class="speak">woof</div></div><div class="dog"><div class="speak">bark</div></div></div>');
+        });
+        return it('of content objects', function() {
+          var data, result, template;
+          template = '<div id="dogs"><div class="dog" /></div>';
+          data = {
+            dogs: function() {
+              return [
+                {
+                  dog: function() {
+                    return {
+                      content: (function() {
+                        return 'woof';
+                      }),
+                      'data-age': (function() {
+                        return 3;
+                      })
+                    };
+                  }
+                }, {
+                  dog: function() {
+                    return {
+                      content: (function() {
+                        return 'bark';
+                      }),
+                      'data-peak': (function() {
+                        return 27;
+                      })
+                    };
+                  }
+                }
+              ];
+            }
           };
           result = facile(template, data);
           return expect(result).toBe('<div id="dogs"><div class="dog" data-age="3">woof</div><div class="dog" data-peak="27">bark</div></div>');

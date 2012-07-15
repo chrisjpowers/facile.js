@@ -59,6 +59,49 @@
         expectedHtml = '<div id="orders"><div class="order"><div class="name">cool order</div></div><div class="order"><div class="name">lame order</div></div></div>'
         expect(result).toBe(expectedHtml)
 
+    describe 'binds deferred async data', ->
+      it 'to ids', ->
+        template = '<div id="dog" />'
+        data = {dog: -> 'woof'}
+        result = null
+        facile template, data, (err, str) ->
+          result = str
+        waitsFor -> result
+        runs -> expect(result).toBe('<div id="dog">woof</div>')
+
+      it 'to ids with deferred functions with callbacks', ->
+        template = '<div id="dog" />'
+        data = {dog: (cb) -> cb(null, 'woof')}
+        result = null
+        facile template, data, (err, str) ->
+          result = str
+        waitsFor -> result
+        runs -> expect(result).toBe('<div id="dog">woof</div>')
+
+      it 'passes callback errors up to facile', ->
+        template = '<div id="dog" />'
+        data = {dog: (cb) -> cb("Bad things happened")}
+        error = null
+        facile template, data, (err, str) ->
+          error = err
+        waitsFor -> error
+        runs -> expect(error).toBe("Bad things happened")
+
+      it 'of binding objects', ->
+        template = '<div id="orders"><div class="order"><div class="name" /></div></div>'
+        data =
+          orders: (cb) ->
+            cb null, [
+              { name: (cb) -> cb(null, 'cool order') }
+              { name: (cb) -> cb(null, 'lame order') }
+            ]
+        result = null
+        facile template, data, (err, str) ->
+          result = str
+        expectedHtml = '<div id="orders"><div class="order"><div class="name">cool order</div></div><div class="order"><div class="name">lame order</div></div></div>'
+        waitsFor -> result
+        runs -> expect(result).toBe(expectedHtml)
+
     describe 'binds objects', ->
       it 'to ids with deferred values', ->
         template = '<div id="dog" />'
