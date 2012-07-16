@@ -1,8 +1,8 @@
 {
-  "author": "Sean Massa",
+  "author": "Sean Massa <endangeredmassa@gmail.com>",
   "name": "facile",
   "description": "Convention-based template engine that depends on jQuery, zepto or cheerio.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "contributors": [
     "Chris Powers <chrisjpowers@gmail.com> (http://chrisjpowers.com)"
   ],

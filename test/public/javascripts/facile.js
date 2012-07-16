@@ -26,45 +26,47 @@
   };
 
   facile = function(template, data, cb) {
-    var $template, key, peel, tuples, val, value;
+    var $template, key, output, peel, tuples, val;
     $template = $('<div />').append($(template));
-    if (cb) {
-      tuples = (function() {
-        var _results;
-        _results = [];
-        for (key in data) {
-          val = data[key];
-          _results.push([key, val]);
+    output = null;
+    if (cb == null) {
+      cb = function(err, str) {
+        if (err) {
+          throw err;
         }
-        return _results;
-      })();
-      peel = function() {
-        var _ref;
-        if (tuples.length > 0) {
-          _ref = tuples.shift(), key = _ref[0], val = _ref[1];
-          return resolve(val, function(err, value) {
+        return output = str;
+      };
+    }
+    tuples = (function() {
+      var _results;
+      _results = [];
+      for (key in data) {
+        val = data[key];
+        _results.push([key, val]);
+      }
+      return _results;
+    })();
+    peel = function() {
+      var _ref;
+      if (tuples.length > 0) {
+        _ref = tuples.shift(), key = _ref[0], val = _ref[1];
+        return resolve(val, function(err, value) {
+          if (err) {
+            return cb(err);
+          }
+          return bindOrRemove($template, key, value, function(err) {
             if (err) {
               return cb(err);
             }
-            return bindOrRemove($template, key, value, function(err) {
-              if (err) {
-                return cb(err);
-              }
-              return peel();
-            });
+            return peel();
           });
-        } else {
-          return cb(null, $template.html());
-        }
-      };
-      return peel();
-    } else {
-      for (key in data) {
-        value = data[key];
-        bindOrRemove($template, key, resolve(value));
+        });
+      } else {
+        return cb(null, $template.html());
       }
-      return $template.html();
-    }
+    };
+    peel();
+    return output;
   };
 
   facile.compile = function(template, options) {
@@ -80,9 +82,7 @@
     } else {
       $el = find($template, key);
       $el.remove();
-      if (cb) {
-        return cb();
-      }
+      return cb();
     }
   };
 
@@ -102,10 +102,7 @@
     var $child, $nested, $root, index, peel;
     $root = find($template, key);
     if ($root.length === 0) {
-      if (cb) {
-        cb();
-      }
-      return;
+      return cb();
     }
     $nested = find($root, key);
     if ($nested.length > 0) {
@@ -117,45 +114,31 @@
     $child = $root.children().remove();
     index = 0;
     peel = function() {
-      var $clone, arrayValue, newHtml;
+      var $clone, arrayValue;
       if (index < value.length) {
         arrayValue = value[index];
         index++;
         $clone = $child.clone();
         if (arrayValue.constructor === Object) {
-          if (cb) {
-            return facile($clone, arrayValue, function(err, newHtml) {
-              if (err) {
-                return cb(err);
-              }
-              $root.append(newHtml);
-              return peel();
-            });
-          } else {
-            newHtml = facile($clone, arrayValue);
+          return facile($clone, arrayValue, function(err, newHtml) {
+            if (err) {
+              return cb(err);
+            }
             $root.append(newHtml);
             return peel();
-          }
+          });
         } else {
-          if (cb) {
-            return resolve(arrayValue, function(err, val) {
-              if (err) {
-                return cb(err);
-              }
-              $clone.html(val);
-              $root.before($clone);
-              return peel();
-            });
-          } else {
-            $clone.html(resolve(arrayValue));
+          return resolve(arrayValue, function(err, val) {
+            if (err) {
+              return cb(err);
+            }
+            $clone.html(val);
             $root.before($clone);
             return peel();
-          }
+          });
         }
       } else {
-        if (cb) {
-          return cb();
-        }
+        return cb();
       }
     };
     return peel();
@@ -201,14 +184,49 @@
         }
       }
     }
-    if (cb) {
-      return cb();
-    }
+    return cb();
   };
 
   bindNestedObject = function($template, key, value, cb) {
-    var attr, attrValue, peel, tuples, _results;
-    if (cb) {
+    var attr, attrValue, peel, tuples;
+    tuples = (function() {
+      var _results;
+      _results = [];
+      for (attr in value) {
+        attrValue = value[attr];
+        _results.push([attr, attrValue]);
+      }
+      return _results;
+    })();
+    peel = function() {
+      var _ref;
+      if (tuples.length > 0) {
+        _ref = tuples.shift(), attr = _ref[0], attrValue = _ref[1];
+        return resolve(attrValue, function(err, resolvedValue) {
+          if (err) {
+            return cb(err);
+          }
+          return bindOrRemove($template, attr, resolvedValue, function(err) {
+            if (err) {
+              return cb(err);
+            }
+            return peel();
+          });
+        });
+      } else {
+        return cb();
+      }
+    };
+    return peel();
+  };
+
+  bindAttributeObject = function($template, key, value, cb) {
+    return resolve(value.content, function(err, content) {
+      var attr, attrValue, peel, tuples;
+      if (err) {
+        return cb(err);
+      }
+      $template.html(content);
       tuples = (function() {
         var _results;
         _results = [];
@@ -218,115 +236,47 @@
         }
         return _results;
       })();
-      return peel = function() {
+      peel = function() {
         var _ref;
         if (tuples.length > 0) {
           _ref = tuples.shift(), attr = _ref[0], attrValue = _ref[1];
-          return resolve(attrValue, function(err, resolvedValue) {
+          if (attr === "content") {
+            return peel();
+          }
+          return resolve(attrValue, function(err, val) {
             if (err) {
               return cb(err);
             }
-            return bindOrRemove($template, attr, resolvedValue, function(err) {
-              if (err) {
-                return cb(err);
-              }
-              return peel();
-            });
+            if (attr === 'class') {
+              $template.attr('class', combineClasses($template.attr('class'), val));
+            } else {
+              $template.attr(attr, val);
+            }
+            return peel();
           });
+        } else {
+          return cb();
         }
       };
-    } else {
-      _results = [];
-      for (attr in value) {
-        attrValue = value[attr];
-        _results.push(bindOrRemove($template, attr, resolve(attrValue)));
-      }
-      return _results;
-    }
-  };
-
-  bindAttributeObject = function($template, key, value, cb) {
-    var attr, attrValue, val, _results;
-    if (cb) {
-      return resolve(value.content, function(err, content) {
-        var attr, attrValue, peel, tuples;
-        if (err) {
-          return cb(err);
-        }
-        $template.html(content);
-        tuples = (function() {
-          var _results;
-          _results = [];
-          for (attr in value) {
-            attrValue = value[attr];
-            _results.push([attr, attrValue]);
-          }
-          return _results;
-        })();
-        peel = function() {
-          var _ref;
-          if (tuples.length > 0) {
-            _ref = tuples.shift(), attr = _ref[0], attrValue = _ref[1];
-            if (attr === "content") {
-              return peel();
-            }
-            return resolve(attrValue, function(err, val) {
-              if (err) {
-                return cb(err);
-              }
-              if (attr === 'class') {
-                $template.attr('class', combineClasses($template.attr('class'), val));
-              } else {
-                $template.attr(attr, val);
-              }
-              return peel();
-            });
-          }
-        };
-        return peel();
-      });
-    } else {
-      $template.html(resolve(value.content));
-      _results = [];
-      for (attr in value) {
-        attrValue = value[attr];
-        if (!(attr !== 'content')) {
-          continue;
-        }
-        val = resolve(attrValue);
-        if (attr === 'class') {
-          _results.push($template.attr('class', combineClasses($template.attr('class'), val)));
-        } else {
-          _results.push($template.attr(attr, val));
-        }
-      }
-      return _results;
-    }
+      return peel();
+    });
   };
 
   resolve = function(functionOrValue, cb) {
     var result;
     if (isFunction(functionOrValue)) {
-      if (cb) {
-        if (functionOrValue.length === 1) {
-          return functionOrValue(cb);
-        } else {
-          try {
-            result = functionOrValue();
-            return cb(null, result);
-          } catch (e) {
-            return cb(e);
-          }
-        }
+      if (functionOrValue.length === 1) {
+        return functionOrValue(cb);
       } else {
-        return functionOrValue();
+        try {
+          result = functionOrValue();
+          return cb(null, result);
+        } catch (e) {
+          return cb(e);
+        }
       }
     } else {
-      if (cb) {
-        return cb(null, functionOrValue);
-      } else {
-        return functionOrValue;
-      }
+      return cb(null, functionOrValue);
     }
   };
 

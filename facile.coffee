@@ -16,23 +16,23 @@ combineClasses = (existingClasses, newClasses) ->
 
 facile = (template, data, cb) ->
   $template = $('<div />').append($(template))
-  if cb
-    tuples = ([key, val] for key, val of data)
-    peel = ->
-      if tuples.length > 0
-        [key, val] = tuples.shift()
-        resolve val, (err, value) ->
+  output = null
+  cb ?= (err, str) ->
+    throw err if err
+    output = str
+  tuples = ([key, val] for key, val of data)
+  peel = ->
+    if tuples.length > 0
+      [key, val] = tuples.shift()
+      resolve val, (err, value) ->
+        return cb(err) if err
+        bindOrRemove $template, key, value, (err) ->
           return cb(err) if err
-          bindOrRemove $template, key, value, (err) ->
-            return cb(err) if err
-            peel()
-      else
-        cb null, $template.html()
-    peel()
-  else
-    for key, value of data
-      bindOrRemove($template, key, resolve(value))
-    $template.html()
+          peel()
+    else
+      cb null, $template.html()
+  peel()
+  output
 
 # Compile method for using in Express
 facile.compile = (template, options) ->
@@ -44,7 +44,7 @@ bindOrRemove = ($template, key, value, cb) ->
   else
     $el = find($template, key)
     $el.remove()
-    cb() if cb
+    cb()
 
 bindData = ($template, key, value, cb) ->
   if value.constructor == Array
@@ -58,8 +58,7 @@ bindData = ($template, key, value, cb) ->
 bindArray = ($template, key, value, cb) ->
   $root = find($template, key)
   if $root.length == 0
-    cb() if cb
-    return
+    return cb()
 
   $nested = find($root, key)
   if $nested.length > 0
@@ -77,28 +76,18 @@ bindArray = ($template, key, value, cb) ->
       index++
       $clone = $child.clone()
       if arrayValue.constructor == Object
-        if cb
-          facile $clone, arrayValue, (err, newHtml) ->
-            return cb(err) if err
-            $root.append(newHtml)
-            peel()
-        else
-          newHtml = facile($clone, arrayValue)
+        facile $clone, arrayValue, (err, newHtml) ->
+          return cb(err) if err
           $root.append(newHtml)
           peel()
       else
-        if cb
-          resolve arrayValue, (err, val) ->
-            return cb(err) if err
-            $clone.html val
-            $root.before $clone
-            peel()
-        else
-          $clone.html(resolve arrayValue)
-          $root.before($clone)
+        resolve arrayValue, (err, val) ->
+          return cb(err) if err
+          $clone.html val
+          $root.before $clone
           peel()
     else
-      cb() if cb
+      cb()
   peel()
 
 bindObject = ($template, key, value, cb) ->
@@ -132,67 +121,55 @@ bindValue = ($template, key, value, cb) ->
         $el.find("option[value='#{value}']").attr('selected', 'selected')
       else
         $el.html('' + value)
-  cb() if cb
+  cb()
 
 bindNestedObject = ($template, key, value, cb) ->
-  if cb
+  tuples = ([attr, attrValue] for attr, attrValue of value)
+  peel = ->
+    if tuples.length > 0
+      [attr, attrValue] = tuples.shift()
+      resolve attrValue, (err, resolvedValue) ->
+        return cb(err) if err
+        bindOrRemove $template, attr, resolvedValue, (err) ->
+          return cb(err) if err
+          peel()
+    else
+      cb()
+  peel()
+
+bindAttributeObject = ($template, key, value, cb) ->
+  resolve value.content, (err, content) ->
+    return cb(err) if err
+    $template.html(content)
+
     tuples = ([attr, attrValue] for attr, attrValue of value)
     peel = ->
       if tuples.length > 0
         [attr, attrValue] = tuples.shift()
-        resolve attrValue, (err, resolvedValue) ->
+        return peel() if attr == "content"
+        resolve attrValue, (err, val) ->
           return cb(err) if err
-          bindOrRemove $template, attr, resolvedValue, (err) ->
-            return cb(err) if err
-            peel()
-  else
-    for attr, attrValue of value
-      bindOrRemove($template, attr, resolve attrValue)
-
-bindAttributeObject = ($template, key, value, cb) ->
-  if cb
-    resolve value.content, (err, content) ->
-      return cb(err) if err
-      $template.html(content)
-
-      tuples = ([attr, attrValue] for attr, attrValue of value)
-      peel = ->
-        if tuples.length > 0
-          [attr, attrValue] = tuples.shift()
-          return peel() if attr == "content"
-          resolve attrValue, (err, val) ->
-            return cb(err) if err
-            if attr == 'class'
-              $template.attr('class', combineClasses($template.attr('class'), val))
-            else
-              $template.attr(attr, val)
-            peel()
-      peel()
-
-  else
-    $template.html(resolve value.content)
-    for attr, attrValue of value when attr != 'content'
-      val = resolve attrValue
-      if attr == 'class'
-        $template.attr('class', combineClasses($template.attr('class'), val))
+          if attr == 'class'
+            $template.attr('class', combineClasses($template.attr('class'), val))
+          else
+            $template.attr(attr, val)
+          peel()
       else
-        $template.attr(attr, val)
+        cb()
+    peel()
 
 resolve = (functionOrValue, cb) ->
   if isFunction functionOrValue
-    if cb
-      if functionOrValue.length == 1
-        functionOrValue(cb)
-      else
-        try
-          result = functionOrValue()
-          cb null, result
-        catch e
-          cb e
+    if functionOrValue.length == 1
+      functionOrValue(cb)
     else
-      functionOrValue()
+      try
+        result = functionOrValue()
+        cb null, result
+      catch e
+        cb e
   else
-    if cb then cb(null, functionOrValue) else functionOrValue
+    cb(null, functionOrValue)
 
 isFunction = (obj) ->
   !!(obj && obj.constructor && obj.call && obj.apply)

@@ -134,6 +134,65 @@ facile(template, data);
 // returns '<div id="dog" data-age="3">woof</div>'
 ```
 
+### Deferred Values
+
+Any functions that are used in your data objects will be treated as deferred
+values and will be run at render time to produce a value. For example:
+
+```javascript
+var template = '<div id="startup" /><div id="now" />',
+    data = {
+      startup: "" + new Date(),
+      now: function() { return "" + new Date(); }
+    };
+setTimeout(function() {
+  facile(template, data);
+}, 3000);
+// 'now' will be 3 seconds after 'startup' because it was calculated at render time
+```
+
+### Asyncronous Deferred Values
+
+There may be times when your deferred value functions need to access
+asynchronous resources to calculate the final value (using XHR in the browser,
+or IO libraries in Node). In these cases, Facile can be passed a Node-style
+callback where the first param is an error and the second is the rendered
+markup. Asynchronous value functions should accept a callback function
+with the same Node-style signature.
+
+In this example, we need to fetch the `name` from the server before we can
+render the template. The `name` is fetched asynchronously with a jQuery
+`ajax` call, and the resulting error or value is passed into the callback
+so that Facile can complete rendering.
+
+```javascript
+var template = '<div id="name" />',
+    data = {
+      name: function(cb) {
+        // cb is called like: cb(err, value)
+        $.ajax({
+          url: "/get-name",
+          type: "GET",
+          dataType: "json",
+          error: function(err) {
+            cb(err); // bubble error up to the facile callback
+          },
+          success: function(name) {
+            cb(null, name);
+          }
+        });
+      }
+    };
+
+facile(template, data, function(err, markup) {
+  if (err) {
+    console.log("ERROR:", err);
+  } else {
+    $("#some-container").html(markup);
+  }
+});
+```
+
 ### Using Facile with Express
 
 Facile works out of the box as a render engine in the Express framework 
